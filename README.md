@@ -7,6 +7,10 @@ An extremely lightweight dzen2 volume monitor inspired by
 Alsa mixer volume code obtained from
 [this code](https://code.google.com/p/yjl/source/browse/Miscellaneous/get-volume.c).
 
+## Flurrywinde's Mods
+
+When the volume would go above 100%, this was maxing out at 100%. Thus, I added two new parameters, --pulseaudio and --max. Normally, dzvol gets the volume from Alsa, but --pulseaudio calls pamixer to get it. Then, use --max to tell dzvol what the real maximum is (e.g. 200%), and it will show that as 100%.
+
 Screenshot
 ----------
 ![dzvol screenshot](screenshot.png)

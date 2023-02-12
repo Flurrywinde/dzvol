@@ -36,13 +36,20 @@ char ICON_TEXT[32] = "♪";
 // The delay between refreshing mixer values
 unsigned long REFRESH_SPEED = 50000;
 
+// Get volume from Alsa or Pulseaudio. 'a' = alsa (default), 'p' = pulseaudio
+int ALSAPULSE = 'a';
+
+// Max volume (default: 100)
+int _MAX = 100;
+
 const char *ATTACH = "default";
 const snd_mixer_selem_channel_id_t CHANNEL = SND_MIXER_SCHN_FRONT_LEFT;
 const char *SELEM_NAME = "Master";
 
 char *LOCK_FILE = "/tmp/dzvol";
 
-void get_volume(float *vol, int *switch_value);
+void get_volume_alsa(float *vol, int *switch_value);
+void get_volume_pulseaudio(float *vol);
 
 void print_usage(void)
 {
@@ -50,19 +57,21 @@ void print_usage(void)
     puts("Usage: dzvol [options]");
     puts("Most options are the same as dzen2\n");
     puts("\t-h|--help\tdisplay this message and exit (0)");
-    puts("\t-x X POS\tmove to the X coordinate on your screen, -1 will center (default: -1)");
-    puts("\t-y Y POS\tmove to the Y coordinate on your screen, -1 will center (default: -1)");
+    puts("\t-x X_POS\tmove to the X coordinate on your screen, -1 will center (default: -1)");
+    puts("\t-y Y_POS\tmove to the Y coordinate on your screen, -1 will center (default: -1)");
     puts("\t-w WIDTH\tset the width (default: 256)");
     puts("\t-h HEIGHT\tset the height (default: 32)");
     puts("\t-d|--delay DELAY  time it takes to exit when volume doesn't change, in seconds (default: 2)");
-    puts("\t-bg\t\tset the background color");
-    puts("\t-fg\t\tset the foreground color");
-    puts("\t-fn\t\tset the font face; same format dzen2 would accept");
-    puts("\t-i\t\tsets the icon text/character to whatever you want");
-    puts("\t-s|--speed\tmicroseconds to poll alsa for the volume");
-    puts("\t\t\thigher amounts are slower, lower amounts (<20000) will begin to cause high CPU usage");
-    puts("\t\t\tsee `man 3 usleep`");
-    puts("\t\t\tdefaults to 50000\n");
+    puts("\t-bg BG\t\tset the background color");
+    puts("\t-fg FG\t\tset the foreground color");
+    puts("\t-fn FONT\tset the font face; same format dzen2 would accept");
+    puts("\t-i ICON\t\tsets the icon text/character to whatever you want");
+    puts("\t-s|--speed SPEED  microseconds to poll alsa for the volume");
+    puts("\t\t\t  higher amounts are slower, lower amounts (<20000) will begin to cause high CPU usage");
+    puts("\t\t\t  see `man 3 usleep`");
+    puts("\t\t\t  defaults to 50000");
+    puts("\t-p|--pulseaudio\tget volume from pulseaudio (else defaults to alsa)");
+    puts("\t-m|--max MAX\tset volume maximum (default: 100)\n");
     puts("Note that dzvol does NOT background itself.");
     puts("It DOES, however, allow only ONE instance of itself to be running at a time by creating /tmp/dzvol as a lock.");
     exit(EXIT_SUCCESS);
@@ -105,11 +114,18 @@ int main(int argc, char *argv[])
         else if(strcmp(argv[i], "-w") == 0)
             WIDTH = atoi(argv[++i]);
 
-        else if(strcmp(argv[i], "-h") == 0)
-            HEIGHT = atoi(argv[++i]);
-
+        else if(strcmp(argv[i], "-h") == 0) {
+			if (argc - 1 <= i) {
+				print_usage();
+			} else
+				HEIGHT = atoi(argv[++i]);
+		}
         else if(strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--speed") == 0)
             REFRESH_SPEED = atoi(argv[++i]);
+        else if(strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--pulseaudio") == 0)
+			ALSAPULSE = 'p';
+        else if(strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--max") == 0)
+            _MAX = atoi(argv[++i]);
 
         else if(strcmp(argv[i], "--help") == 0)
             print_usage();
@@ -122,8 +138,10 @@ int main(int argc, char *argv[])
         fprintf(f, "%d", getpid());
         fclose(f);
     }
-    else
+    else {
+        fprintf(stderr, "Lock file found");
         return 0;
+	}
 
     // get X and Y
     Display *xdisp = XOpenDisplay(NULL);
@@ -149,6 +167,7 @@ int main(int argc, char *argv[])
     char BG[24];
     char FG[24];
     char FONT[270];
+	float MAX;
 
     // Do color and font checks
     if(strcmp(_BG, "") != 0)
@@ -165,6 +184,13 @@ int main(int argc, char *argv[])
         sprintf(FONT, "-fn '%s'", _FONT);
     else
         strcpy(FONT, "");
+
+	// Calculate MAX
+	if(_MAX < 100 || _MAX > 200) {
+        fprintf(stderr, "--max must be an integer between 100 and 200\n");
+		return 1;
+	}
+	MAX = (float)_MAX / 100;  // TODO: rename this. It's really what vol needs to be divided by to become 100% max
 
     sprintf(command, "dzen2 -ta l -x %d -y %d -w %d -h %d %s %s %s", X, Y, WIDTH, HEIGHT,
             BG, FG, FONT);
@@ -187,16 +213,38 @@ int main(int argc, char *argv[])
         float vol;
         int switch_value;
 
-        get_volume(&vol, &switch_value);
+		if (ALSAPULSE == 'a')
+			get_volume_alsa(&vol, &switch_value);
+		else {
+			get_volume_pulseaudio(&vol);
+			switch_value = 1;  // what is this? Just set it to 1?
+		}
+		//printf("%f\n", vol);
+		// Adjust vol to be 100% max
+		vol = vol / MAX;
 
         if(prev_vol != vol || prev_switch_value != switch_value)
         {
             char *string = malloc(sizeof(char) * 512);
-            sprintf(string, "^pa(+%ldX)%s^pa()  ^r%s(%ldx%ld) ^pa(+%ldX)%3.0f%%^pa()\n",
-                    ltext_x, ICON_TEXT, (switch_value == 1) ? "" : "o",
-                    lround(pbar_max_width * vol), pbar_height, rtext_x, vol*100);
+			// Kanon added
+			char *inlinefont;
+			if(strcmp(_FONT, "") != 0) {
+				inlinefont = malloc(sizeof(char) * (strlen(_FONT) + 6));
+				sprintf(inlinefont, "^fn(%s)", _FONT);
+				sprintf(string, "^pa(+%ldX)%s^pa()  ^r%s(%ldx%ld) ^pa(+%ldX)%s%3.0f%%^pa()\n",
+						ltext_x, ICON_TEXT, (switch_value == 1) ? "" : "o",
+						lround(pbar_max_width * vol), pbar_height, rtext_x, inlinefont, vol*100);
+				free(inlinefont);
+			} else {
+				// Original code was just this:
+				sprintf(string, "^pa(+%ldX)%s^pa()  ^r%s(%ldx%ld) ^pa(+%ldX)%3.0f%%^pa()\n",
+						ltext_x, ICON_TEXT, (switch_value == 1) ? "" : "o",
+						lround(pbar_max_width * vol), pbar_height, rtext_x, vol*100);
+			}
+			// End of Kanon mod
             fprintf(stream, string);
             fflush(stream);
+			//printf("%s\n", string);
             free(string);
 
             prev_vol = vol;
@@ -227,7 +275,34 @@ void error_close_exit(char *errmsg, int err, snd_mixer_t *h_mixer)
     exit(EXIT_FAILURE);
 }
 
-void get_volume(float *vol, int *switch_value)
+void get_volume_pulseaudio(float *vol) {
+  FILE *fp;
+  char path[1035];
+  float volpercent;
+
+  /* Open the command for reading. */
+  fp = popen("/usr/bin/pamixer --get-volume", "r");
+  if (fp == NULL) {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(path, sizeof(path), fp) != NULL) {
+    //fprintf(stderr, "%s\n", path);
+	volpercent = atof(path) / 100;
+    //fprintf(stderr, "%f\n", volpercent);
+	if (volpercent >= 0 && volpercent <= 2)  // 2 because might be over 100%
+		break;
+  }
+
+  /* close */
+  pclose(fp);
+
+  *vol = volpercent; // 0-1 float
+}
+
+void get_volume_alsa(float *vol, int *switch_value)
 {
     int err;
     long volume, vol_min, vol_max;
@@ -256,6 +331,7 @@ void get_volume(float *vol, int *switch_value)
         error_close_exit("Cannot find simple element\n", 0, h_mixer);
 
     snd_mixer_selem_get_playback_volume(elem, CHANNEL, &volume);
+
     snd_mixer_selem_get_playback_volume_range(elem, &vol_min, &vol_max);
     snd_mixer_selem_get_playback_switch(elem, CHANNEL, switch_value);
 
