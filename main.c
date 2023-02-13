@@ -182,8 +182,9 @@ int main(int argc, char *argv[])
 
     if(strcmp(_FONT, "") != 0)
         sprintf(FONT, "-fn '%s'", _FONT);
-    else
+    else {
         strcpy(FONT, "");
+	}
 
 	// Calculate MAX
 	if(_MAX < 100 || _MAX > 200) {
@@ -206,19 +207,30 @@ int main(int argc, char *argv[])
     time_t current_time = (unsigned)time(NULL);
     time_t stop_time = current_time + SECONDS_DELAY;
 
+	// Benchmarking alsa vs pulseaudio
+	clock_t start, end;
+	double cpu_time_used, total_time = 0;
+	int i = 0;
+
     while(current_time <= stop_time)
     {
         current_time = (unsigned)time(NULL);
+		i += 1;
 
         float vol;
         int switch_value;
 
+		start = clock();
 		if (ALSAPULSE == 'a')
 			get_volume_alsa(&vol, &switch_value);
 		else {
 			get_volume_pulseaudio(&vol);
 			switch_value = 1;  // what is this? Just set it to 1?
 		}
+		end = clock();
+		cpu_time_used = ((double) (end - start));
+		cpu_time_used = cpu_time_used / CLOCKS_PER_SEC;
+		total_time += cpu_time_used;
 		//printf("%f\n", vol);
 		// Adjust vol to be 100% max
 		vol = vol / MAX;
@@ -227,24 +239,18 @@ int main(int argc, char *argv[])
         {
             char *string = malloc(sizeof(char) * 512);
 			// Kanon added
-			char *inlinefont;
-			if(strcmp(_FONT, "") != 0) {
-				inlinefont = malloc(sizeof(char) * (strlen(_FONT) + 6));
-				sprintf(inlinefont, "^fn(%s)", _FONT);
-				sprintf(string, "^pa(+%ldX)%s^pa()  ^r%s(%ldx%ld) ^pa(+%ldX)%s%3.0f%%^pa()\n",
-						ltext_x, ICON_TEXT, (switch_value == 1) ? "" : "o",
-						lround(pbar_max_width * vol), pbar_height, rtext_x, inlinefont, vol*100);
-				free(inlinefont);
-			} else {
-				// Original code was just this:
-				sprintf(string, "^pa(+%ldX)%s^pa()  ^r%s(%ldx%ld) ^pa(+%ldX)%3.0f%%^pa()\n",
-						ltext_x, ICON_TEXT, (switch_value == 1) ? "" : "o",
-						lround(pbar_max_width * vol), pbar_height, rtext_x, vol*100);
-			}
+			//sprintf(string, "^fn(Noto Color Emoji:size=16)^pa(+20X)👻^fn(IosevkaTerm Nerd Font:size=16)  ^r(37x11) ^pa(+200X) 24%^pa()\n");
+			sprintf(string, "^pa(+%ldX)%s^pa()^fn(%s)  ^r%s(%ldx%ld) ^pa(+%ldX)%3.0f%%^pa()\n",
+					ltext_x, ICON_TEXT, _FONT, (switch_value == 1) ? "" : "o",
+					lround(pbar_max_width * vol), pbar_height, rtext_x, vol*100);
+			/* Original code:
+			sprintf(string, "^pa(+%ldX)%s^pa()  ^r%s(%ldx%ld) ^pa(+%ldX)%3.0f%%^pa()\n",
+					ltext_x, ICON_TEXT, (switch_value == 1) ? "" : "o",
+					lround(pbar_max_width * vol), pbar_height, rtext_x, vol*100); */
 			// End of Kanon mod
             fprintf(stream, string);
             fflush(stream);
-			//printf("%s\n", string);
+			printf("%s\n", string);
             free(string);
 
             prev_vol = vol;
@@ -259,6 +265,7 @@ int main(int argc, char *argv[])
     fflush(NULL);
     pclose(stream);
     remove(LOCK_FILE);
+	//printf("Benchmark: %f total time spent getting the volume (in seconds) %d times for an average of %f s.\n", total_time, i, total_time/i);
     return 0;
 }
 

@@ -9,7 +9,21 @@ Alsa mixer volume code obtained from
 
 ## Flurrywinde's Mods
 
-When the volume would go above 100%, this was maxing out at 100%. Thus, I added two new parameters, --pulseaudio and --max. Normally, dzvol gets the volume from Alsa, but --pulseaudio calls pamixer to get it. Then, use --max to tell dzvol what the real maximum is (e.g. 200%), and it will show that as 100%.
+### Support volume over 100%
+On my systems, 100% volume is still too low, so I often raise it above 100%. `dzvol`, however, would show anything over 100% as still just 100%. Thus, I added two new parameters, --pulseaudio and --max. The original code gets the volume from Alsa, but --pulseaudio calls pamixer to get it. Then, use --max to tell dzvol what you want it to use for its maximum (e.g. 200%), and it will show that as 100% on the slider.
+
+#### TODO: Use the C library, libpulse, instead of popen'ing pamixer.
+I thought making a system call would be slow. Besides, no C programmer worth their salt shells out if there's a low-level way to do the same thing! But then I benchmarked it, and wow, the popen call to pamixer is an order of magnitude faster than using the alsa library (on average, 3 ms vs 0.2 ms).
+
+### Just for fun: color emojis for the icon
+
+Example: `dzvol -i "^fn(Noto Color Emoji:size=16)👻"`
+
+### Minor edits
+
+* -h without a parm = help.
+* Minor edits to the help output.
+* Say something if it aborts due to the lock file.
 
 Screenshot
 ----------
@@ -17,7 +31,7 @@ Screenshot
 
 Arguments to get this look would be:
 
-    dzvol -bg '#222222' -fg '#FFFFFF' -fn 'Deja Vu Sans Mono 12'
+    dzvol -bg '#222222' -fg '#FFFFFF' -fn 'Deja Vu Sans Mono:size=12'
 
 How can I use it?
 -----------------
@@ -55,16 +69,17 @@ There *are* some custom ones, which I'll go over here:
 
 |argument|description|
 |--------|-----------|
-|--help  | Show the help message and exit.|
-|-x X    | Adjust the X position of the window manually. If left default (-1), it will center based on your screen dimensions.|
-|-y Y    | Adjust the Y position of the window manually. If left default (-1), it will center based on your screen dimensions.|
-|-w WIDTH| Adjust the width of the window manually (default is 256). The progress bar and text placement should scale keeping preservation of proportions.|
-|-h HEIGHT|Adjust the height of the window (default is 32). Also keeps preservation of proportions.|
-|-d, --delay |Sets the time it takes to exit when the volume hasn't changed. Defaults to 2 seconds.|
+|-h, --help  | Show the help message and exit.|
+|-x X        | Adjust the X position of the window manually. If left default (-1), it will center based on your screen dimensions.|
+|-y Y        | Adjust the Y position of the window manually. If left default (-1), it will center based on your screen dimensions.|
+|-w WIDTH    | Adjust the width of the window manually (default is 256). The progress bar and text placement should scale keeping preservation of proportions.|
+|-h HEIGHT   |Adjust the height of the window (default is 32). Also keeps preservation of proportions.|
+|-d, --delay DELAY |Sets the time it takes to exit when the volume hasn't changed. Defaults to 2 seconds.|
 |-bg COLOR | Sets the background color. This should be in the same format dzen2 would accept.|
 |-fg COLOR | Sets the foreground color. This should be in the same format dzen2 would accept.|
 |-fn FONT  | Sets the font. This should be in the same format dzen2 would accept.|
 |-i TEXT   | Sets the icon text/character on the left. Defaults to a music note seen in the screenshot. |
-|-s, --speed | Speed in microseconds to poll ALSA for volume. The higher the value, the slower the polling, the lower the value, the faster the polling. A lower value would result in a smoother animation as the volume changes; higher values get choppier, but save on CPU. Values below 20,000 begin to cause high CPU usage. Defaults to 50,000.|
+|-s, --speed SPEED | Speed in microseconds to poll ALSA for volume. The higher the value, the slower the polling, the lower the value, the faster the polling. A lower value would result in a smoother animation as the volume changes; higher values get choppier, but save on CPU. Values below 20,000 begin to cause high CPU usage. Defaults to 50,000.|
 |-p, --pulseaudio | Get volume from Pulseaudio (default is Alsa)|
-|-m, --max MAX | Sets volume maximum (default: 100)|
+|-m, --max MAX    | Sets volume maximum (default: 100)|
+
