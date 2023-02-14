@@ -31,7 +31,8 @@ char _FONT[256];
 char _BG[9];
 char _FG[9];
 
-char ICON_TEXT[32] = "♪";
+// char ICON_TEXT[32] = "♪";
+int ANIMICON = 0;  // -a options sets this to 1 for 📢 🔊 🔉 🔈🔇 animated icon
 
 // The delay between refreshing mixer values
 unsigned long REFRESH_SPEED = 50000;
@@ -50,13 +51,13 @@ char *LOCK_FILE = "/tmp/dzvol";
 
 void get_volume_alsa(float *vol, int *switch_value);
 void get_volume_pulseaudio(float *vol, int *switch_value);
+void seticon(float vol, float prev_vol, int switch_value, int prev_switch_value, char *ICON_TEXT);
 
 void print_usage(void)
 {
     remove(LOCK_FILE);
     puts("Usage: dzvol [options]");
     puts("Most options are the same as dzen2\n");
-    puts("\t-h|--help\tdisplay this message and exit (0)");
     puts("\t-x X_POS\tmove to the X coordinate on your screen, -1 will center (default: -1)");
     puts("\t-y Y_POS\tmove to the Y coordinate on your screen, -1 will center (default: -1)");
     puts("\t-w WIDTH\tset the width (default: 256)");
@@ -66,12 +67,15 @@ void print_usage(void)
     puts("\t-fg FG\t\tset the foreground color");
     puts("\t-fn FONT\tset the font face; same format dzen2 would accept");
     puts("\t-i ICON\t\tsets the icon text/character to whatever you want");
-    puts("\t-s|--speed SPEED  microseconds to poll alsa for the volume");
+    puts("\t-s|--speed SPEED  time to wait between volume checks, in microseconds (default: 50000)");
     puts("\t\t\t  higher amounts are slower, lower amounts (<20000) will begin to cause high CPU usage");
     puts("\t\t\t  see `man 3 usleep`");
-    puts("\t\t\t  defaults to 50000");
     puts("\t-p|--pulseaudio\tget volume from pulseaudio (else defaults to alsa)");
-    puts("\t-m|--max MAX\tset volume maximum (default: 100)\n");
+    puts("\t-m|--max MAX\tset volume maximum (default: 100)");
+    puts("\t-a|--animated-icon  Make the icon a color emoji that changes depending on the volume.");
+    puts("\t                    Can be used in conjunction with -i which sets the initial icon.");
+    puts("\t-h|--help\tdisplay this message and exit (0)");
+    puts("\t-v|--version\tdisplay version information. (Side-effect: reset the lock file in case of prior crash)\n");
     puts("Note that dzvol does NOT background itself.");
     puts("It DOES, however, allow only ONE instance of itself to be running at a time by creating /tmp/dzvol as a lock.");
     exit(EXIT_SUCCESS);
@@ -79,13 +83,17 @@ void print_usage(void)
 
 int main(int argc, char *argv[])
 {
+	char *ICON_TEXT = malloc(sizeof(char) * 32);
+	strcpy(ICON_TEXT, "♪");
+
     // command line arguments {{{
     for(int i = 1; i < argc; i++)
         if(strcmp(argv[i], "-v") == 0 ||
            strcmp(argv[i], "--version") == 0)
         {
-            puts("dzvol: 1.0");
+            puts("dzvol: 2.0");
             puts("Nick Allevato, inspired by bruenig's dvol");
+            puts("Now with modifications by Flurrywinde");
             remove(LOCK_FILE);
             exit(EXIT_SUCCESS);
         }
@@ -126,6 +134,8 @@ int main(int argc, char *argv[])
 			ALSAPULSE = 'p';
         else if(strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--max") == 0)
             _MAX = atoi(argv[++i]);
+        else if(strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--animated-icon") == 0)
+			ANIMICON = 1;
 
         else if(strcmp(argv[i], "--help") == 0)
             print_usage();
@@ -232,6 +242,8 @@ int main(int argc, char *argv[])
 		//printf("%f\n", vol);
 		// Adjust vol to be 100% max
 		vol = vol / MAX;
+		if(ANIMICON && prev_vol != -1)
+			seticon(vol, prev_vol, switch_value, prev_switch_value, ICON_TEXT);
 
         if(prev_vol != vol || prev_switch_value != switch_value)
         {
@@ -345,4 +357,17 @@ void get_volume_alsa(float *vol, int *switch_value)
     *vol = volume / (float)vol_max;
 
     snd_mixer_close(h_mixer);
+}
+
+void seticon(float vol, float prev_vol, int switch_value, int prev_switch_value, char *ICON_TEXT) {
+	if (switch_value == 0)
+		strcpy(ICON_TEXT, "^fn(Noto Color Emoji:size=16)🔇");
+	else if (vol >= 1)
+		strcpy(ICON_TEXT, "^fn(Noto Color Emoji:size=16)📢");
+	else if (vol >= .66)
+		strcpy(ICON_TEXT, "^fn(Noto Color Emoji:size=16)🔊");
+	else if (vol >= .33)
+		strcpy(ICON_TEXT, "^fn(Noto Color Emoji:size=16)🔉");
+	else
+		strcpy(ICON_TEXT, "^fn(Noto Color Emoji:size=16)🔈");
 }
