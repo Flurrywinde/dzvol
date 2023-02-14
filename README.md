@@ -19,6 +19,14 @@ I thought making a system call would be slow. Besides, no C programmer worth the
 
 Example: `dzvol -i "^fn(Noto Color Emoji:size=16)👻"`
 
+### Icon changes according to the volume: 📢 🔊 🔉 🔈🔇
+
+Example: `dzvol -a -i "^fn(Noto Color Emoji:size=16)👻"`
+
+The icon will begin as the ghost, but if the volume is changed, it will become one of the speakers.
+
+TODO: Since the icons can be different widths now, the volume bar might start at a different place. (Color emojis are a bit larger than regular characters, so the space around them is already a little off. How to fix?)
+
 ### Minor edits
 
 * -h without a parm = help.
@@ -69,7 +77,6 @@ There *are* some custom ones, which I'll go over here:
 
 |argument|description|
 |--------|-----------|
-|-h, --help  | Show the help message and exit.|
 |-x X        | Adjust the X position of the window manually. If left default (-1), it will center based on your screen dimensions.|
 |-y Y        | Adjust the Y position of the window manually. If left default (-1), it will center based on your screen dimensions.|
 |-w WIDTH    | Adjust the width of the window manually (default is 256). The progress bar and text placement should scale keeping preservation of proportions.|
@@ -82,4 +89,6 @@ There *are* some custom ones, which I'll go over here:
 |-s, --speed SPEED | Speed in microseconds to poll ALSA for volume. The higher the value, the slower the polling, the lower the value, the faster the polling. A lower value would result in a smoother animation as the volume changes; higher values get choppier, but save on CPU. Values below 20,000 begin to cause high CPU usage. Defaults to 50,000.|
 |-p, --pulseaudio | Get volume from Pulseaudio (default is Alsa)|
 |-m, --max MAX    | Sets volume maximum (default: 100)|
-
+|-a, --animated-icon | Make the icon a color emoji that changes depending on the volume. Can be used in conjunction with -i which sets the initial icon.|
+|-h, --help  | Show the help message and exit.|
+|-v, --version | Display version information.|

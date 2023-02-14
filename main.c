@@ -75,9 +75,10 @@ void print_usage(void)
     puts("\t-a|--animated-icon  Make the icon a color emoji that changes depending on the volume.");
     puts("\t                    Can be used in conjunction with -i which sets the initial icon.");
     puts("\t-h|--help\tdisplay this message and exit (0)");
-    puts("\t-v|--version\tdisplay version information. (Side-effect: reset the lock file in case of prior crash)\n");
+    puts("\t-v|--version\tdisplay version information.");
     puts("Note that dzvol does NOT background itself.");
     puts("It DOES, however, allow only ONE instance of itself to be running at a time by creating /tmp/dzvol as a lock.");
+    puts("To remove an extraneous lock file (e.g. it crashed), run dzvol -h or -v.");
     exit(EXIT_SUCCESS);
 }
 
@@ -85,6 +86,7 @@ int main(int argc, char *argv[])
 {
 	char *ICON_TEXT = malloc(sizeof(char) * 32);
 	strcpy(ICON_TEXT, "♪");
+	int user_icon_specified = 0;
 
     // command line arguments {{{
     for(int i = 1; i < argc; i++)
@@ -101,9 +103,10 @@ int main(int argc, char *argv[])
         else if(strcmp(argv[i], "-bg") == 0)
             strcpy(_BG, argv[++i]);
 
-        else if(strcmp(argv[i], "-i") == 0)
+        else if(strcmp(argv[i], "-i") == 0) {
+			user_icon_specified = 1;
             strcpy(ICON_TEXT, argv[++i]);
-
+		}
         else if(strcmp(argv[i], "-fg") == 0)
             strcpy(_FG, argv[++i]);
 
@@ -242,7 +245,7 @@ int main(int argc, char *argv[])
 		//printf("%f\n", vol);
 		// Adjust vol to be 100% max
 		vol = vol / MAX;
-		if(ANIMICON && prev_vol != -1)
+		if((ANIMICON && prev_vol != -1) || (ANIMICON && prev_vol == -1 && !user_icon_specified))
 			seticon(vol, prev_vol, switch_value, prev_switch_value, ICON_TEXT);
 
         if(prev_vol != vol || prev_switch_value != switch_value)
