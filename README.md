@@ -19,11 +19,13 @@ I thought making a system call would be slow. Besides, no C programmer worth the
 
 Example: `dzvol -i "^fn(Noto Color Emoji:size=16)👻"`
 
-### Icon changes according to the volume: 📢 🔊 🔉 🔈🔇
+### Icon changes according to the volume
 
-Example: `dzvol -a -i "^fn(Noto Color Emoji:size=16)👻"`
+Example: `dzvol -a`
 
-The icon will begin as the ghost, but if the volume is changed, it will become one of the speakers.
+Depending on the volume level (or if muted), the icon will be one of the following: 📢 🔊 🔉 🔈 🔇
+
+Can be combined with -i, and if so, dzvol will begin with the icon specified by -i but change if the volume is changed.
 
 TODO: Since the icons can be different widths now, the volume bar might start at a different place. (Color emojis are a bit larger than regular characters, so the space around them is already a little off. How to fix?)
 
