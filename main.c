@@ -49,7 +49,7 @@ const char *SELEM_NAME = "Master";
 char *LOCK_FILE = "/tmp/dzvol";
 
 void get_volume_alsa(float *vol, int *switch_value);
-void get_volume_pulseaudio(float *vol);
+void get_volume_pulseaudio(float *vol, int *switch_value);
 
 void print_usage(void)
 {
@@ -223,10 +223,8 @@ int main(int argc, char *argv[])
 		start = clock();
 		if (ALSAPULSE == 'a')
 			get_volume_alsa(&vol, &switch_value);
-		else {
-			get_volume_pulseaudio(&vol);
-			switch_value = 1;  // what is this? Just set it to 1?
-		}
+		else
+			get_volume_pulseaudio(&vol, &switch_value);
 		end = clock();
 		cpu_time_used = ((double) (end - start));
 		cpu_time_used = cpu_time_used / CLOCKS_PER_SEC;
@@ -250,7 +248,7 @@ int main(int argc, char *argv[])
 			// End of Kanon mod
             fprintf(stream, string);
             fflush(stream);
-			printf("%s\n", string);
+			//printf("%s\n", string);
             free(string);
 
             prev_vol = vol;
@@ -282,31 +280,33 @@ void error_close_exit(char *errmsg, int err, snd_mixer_t *h_mixer)
     exit(EXIT_FAILURE);
 }
 
-void get_volume_pulseaudio(float *vol) {
+char* popen_firstline(char *cmd) {
   FILE *fp;
-  char path[1035];
-  float volpercent;
+  char *line = malloc(sizeof(char) * 1035);
 
   /* Open the command for reading. */
-  fp = popen("/usr/bin/pamixer --get-volume", "r");
+  fp = popen(cmd, "r");
   if (fp == NULL) {
-    printf("Failed to run command\n" );
+    printf("Failed to run command: %s\n", cmd);
     exit(1);
   }
 
-  /* Read the output a line at a time - output it. */
-  while (fgets(path, sizeof(path), fp) != NULL) {
-    //fprintf(stderr, "%s\n", path);
-	volpercent = atof(path) / 100;
-    //fprintf(stderr, "%f\n", volpercent);
-	if (volpercent >= 0 && volpercent <= 2)  // 2 because might be over 100%
-		break;
-  }
-
-  /* close */
+  fgets(line, sizeof(line), fp);
   pclose(fp);
+  return line;
+}
 
-  *vol = volpercent; // 0-1 float
+void get_volume_pulseaudio(float *vol, int *switch_value) {
+	char *volume, *muteness;
+	volume = popen_firstline("/usr/bin/pamixer --get-volume");
+	*vol = atof(volume) / 100;  // 0-1 float
+	free(volume);
+	muteness = popen_firstline("/usr/bin/pamixer --get-mute");
+	if(strcmp(muteness, "true\n") == 0)
+		*switch_value = 0;
+	else
+		*switch_value = 1;
+	free(muteness);
 }
 
 void get_volume_alsa(float *vol, int *switch_value)

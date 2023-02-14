@@ -40,7 +40,7 @@ xbindkeys or your WM.
 
 For example, in i3, I would do something like this:
 
-    set $dzvol dzvol -bg '#222222' -fg '#FFFFFF' -fn 'Deja Vu Sans Mono 12' &
+    set $dzvol dzvol -bg '#222222' -fg '#FFFFFF' -fn 'Deja Vu Sans Mono:size=12' &
     bindsym XF86AudioRaiseVolume exec --no-startup-id amixer -qD pulse set Master 2%+ unmute && $dzvol
 
 Notice how I make dzvol fork, since it **does not fork on its own**, but it *will*
